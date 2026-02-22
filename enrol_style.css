@@ -1,0 +1,32 @@
+.site-header {
+    background: #4c6aa6;      
+    padding: 15px 25px;
+    color: white;
+}
+
+.header-container {
+    display: flex;
+    align-items: center;
+    gap: 18px;               
+}
+
+.logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    background: white;
+    padding: 6px;
+}
+
+.title-block h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.title-block p {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    opacity: 0.85;
+}
