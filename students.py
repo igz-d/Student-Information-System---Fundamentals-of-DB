@@ -3,6 +3,8 @@
 import cgi
 import mysql.connector
 import html
+from http.cookies import SimpleCookie
+import os
 
 form = cgi.FieldStorage()
 action = form.getvalue("action", "")
@@ -18,16 +20,39 @@ subj_id = html.escape(form.getvalue("subjid", ""))
 out_subj_id = html.escape(form.getvalue("out_subjid", ""))
 selected_subject_id = html.escape(form.getvalue("selected_subject", ""))
 database = html.escape(form.getvalue("db", ""))
+db_action = form.getvalue("db_action", "")
 
 selected_student = None
+
+print("Content-Type: text/html\n")
+
+cookie = SimpleCookie(os.environ.get("HTTP_COOKIE"))
+session = cookie.get("session_id")
+
+if not session:
+    print("<h2>Not logged in</h2>")
+    exit()
+
+session_id = session.value
+file_path = f"sessions/session_{session_id}.txt"
+
+try:
+    with open(file_path) as f:
+        data = f.read().split("|")
+
+    username, password, database = data
+
+except FileNotFoundError:
+    print("<h2>Session expired or invalid</h2>")
+    exit()
 
 
 try:
     conn = mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="UTMEyt9pLjJq",
-        database="studentenrollment"
+        user=username,
+        password=password,
+        database=database
     )
 
     cursor = conn.cursor(buffered=True)
@@ -100,6 +125,57 @@ try:
         print()
         exit()
 
+    if db_action in ["db1st_sem", "db2nd_sem", "dbsummer"]:
+        print("<script>")
+        if db_action == "db1st_sem":
+            cursor.execute("CREATE DATABASE IF NOT EXISTS 1stSem_SY2026_2027")
+            cursor.execute("USE 1stSem_SY2026_2027")
+
+                # Load schema file
+            with open("schema.sql") as f:
+                sql_commands = f.read().split(";")
+
+            for command in sql_commands:
+                if command.strip():
+                    cursor.execute(command)
+                    conn.commit()
+            
+            print('''
+            alert("Database 1stSem_SY2026_2027 created or already exists.");
+            window.location.href = "index.py";
+                  ''')
+        elif db_action == "db2nd_sem":
+            cursor.execute("CREATE DATABASE IF NOT EXISTS 2ndSem_SY2026_2027") 
+            cursor.execute("USE 2ndSem_SY2026_2027")
+
+            with open("schema.sql") as f: 
+                sql_commands = f.read().split(";") 
+
+            for command in sql_commands: 
+                cursor.execute(command)
+                conn.commit()
+            
+            print('''
+            alert("Database 2ndSem_SY2026_2027 created or already exists.");
+            window.location.href = "index.py";
+                  ''')
+        elif db_action == "dbsummer":
+            cursor.execute("CREATE DATABASE IF NOT EXISTS Summer_SY2026_2027")
+            cursor.execute("USE Summer_SY2026_2027")
+
+            with open("schema.sql") as f:
+                sql_commands = f.read().split(";")
+            
+            for command in sql_commands:
+                cursor.execute(command)
+                conn.commit()
+
+            print('''
+            alert("Database Summer_SY2026_2027 created or already exists.");
+            window.location.href = "index.py";
+                  ''')
+        print("</script>")
+
     cursor.execute("select studid as x, studname, studadd, studcrs, studgender, yrlvl, (select sum(s.subjunits) FROM subjects as s, students as st, enroll as e WHERE s.subjid = e.subjid AND st.studid = e.studid AND st.studid = x) AS TotUnits FROM students;")
     rows = cursor.fetchall()
 
@@ -136,6 +212,26 @@ try:
                 <td><a href="subjects.py"> Subjects </a></td>
                 <td>|</td>
                 <td><a href="teachers.py"> Teachers </a></td>
+                <td>
+                <form action="students.py" method="post">
+                <select onchange="handleDBChange(this.value)">
+                    <option value="">Create Database</option>
+                    <option value="db1st_sem">1st Sem</option>
+                    <option value="db2nd_sem">2nd Sem</option>
+                    <option value="dbsummer">Summer</option>
+                </select>
+
+                <script>
+                function handleDBChange(val) {
+                    if (val !== "") {
+                        document.getElementById('db_action').value = val;
+                        document.forms[0].submit();
+                    }
+                }
+                </script>
+                <input type="hidden" name="db_action" id="db_action"><br>
+                </form>
+                </td>
                 </tr>
                 </table>
                 <h3>Student Form</h3>
@@ -173,7 +269,7 @@ try:
             </td>
 
             <td width="75%" valign="top">
-                <h3>Students</h3>
+                <h3>Students Table for: {}</h3>
                 <table id="data-table" border="1" cellpadding="5" cellspacing="0" width="100%">
                     <tr>
                         <th>ID</th>
@@ -185,7 +281,7 @@ try:
                         <th>Total Units</th>
                     </tr>
             </td>
-    """)
+    """.format(database))
 
     for row in rows:
         # row: student

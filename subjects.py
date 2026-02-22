@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
+from http.cookies import SimpleCookie
+import os
 import cgi
 import mysql.connector
 import html
-
-print("Content-type: text/html\n")
 
 form = cgi.FieldStorage()
 action = form.getvalue("action", "")
@@ -14,13 +14,33 @@ subj_desc = html.escape(form.getvalue("subjdesc", ""))
 subj_units = html.escape(form.getvalue("subjunits", ""))
 subj_sched = html.escape(form.getvalue("subjsched", ""))
 
+print("Content-Type: text/html\n")
 
+cookie = SimpleCookie(os.environ.get("HTTP_COOKIE"))
+session = cookie.get("session_id")
+
+if not session:
+    print("<h2>Not logged in</h2>")
+    exit()
+
+session_id = session.value
+file_path = f"sessions/session_{session_id}.txt"
+
+try:
+    with open(file_path) as f:
+        data = f.read().split("|")
+
+    username, password, database = data
+
+except FileNotFoundError:
+    print("<h2>Session expired or invalid</h2>")
+    exit()
 try:
     conn = mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="UTMEyt9pLjJq",
-        database="studentenrollment"
+        user=username,
+        password=password,
+        database=database
     )
 
     cursor = conn.cursor()
